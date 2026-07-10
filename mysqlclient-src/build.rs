@@ -20,23 +20,27 @@ fn main() {
         config.define("WITH_SSL", openssl_dir.unwrap());
     }
 
-    if cfg!(feature = "with-asan") {
+    if std::env::var("CARGO_FEATURE_WITH_ASAN").is_ok() {
         config.define("WITH_ASAN", "ON");
     }
 
     let target_env = std::env::var("CARGO_CFG_TARGET_ENV");
-    if target_env.as_deref() == Ok("msvc") {
-        // rust links the release MVSC runtime
-        // also for debug builds. If we let
-        // cmake choose debug/release builds
-        // based on the underlying cargo build
-        // version that results in linker errors
-        config.profile("Release");
-    } else if target_env.as_deref() == Ok("musl") {
-        // when (cross) compiling for musl targets
-        // you need an extra flag to tell the
-        // compiler it is building a musl target
-        config.define("LINUX_ALPINE", "1");
+    match target_env.as_deref() {
+        Ok("msvc") => {
+            // rust links the release MVSC runtime
+            // also for debug builds. If we let
+            // cmake choose debug/release builds
+            // based on the underlying cargo build
+            // version that results in linker errors
+            config.profile("Release");
+        }
+        Ok("musl") => {
+            // when (cross) compiling for musl targets
+            // you need an extra flag to tell the
+            // compiler it is building a musl target
+            config.define("LINUX_ALPINE", "1");
+        }
+        _ => {}
     }
 
     let mut dst = config.build();
