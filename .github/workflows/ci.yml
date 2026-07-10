@@ -224,12 +224,14 @@ jobs:
           cargo --version
           rustc --version
 
-      - name: Setup musl toolchain (aarch64)
+      - name: Setup musl toolchain
         if: ${{ matrix.compiler_target.target == 'aarch64-unknown-linux-musl' ||  matrix.compiler_target.target == 'x86_64-unknown-linux-musl' }}
         run: |
           sudo apt-get update
           sudo apt-get install -y musl-tools
-          echo "TARGET_CXX=g++" >> $GITHUB_ENV
+          echo "TARGET_CXX=musl-gcc" >> $GITHUB_ENV
+          echo "TARGET_CC=musl-gcc" >> $GITHUB_ENV
+          echo "TARGET_LD=musl-gcc" >> $GITHUB_ENV
 
       - name: Check
         shell: bash
