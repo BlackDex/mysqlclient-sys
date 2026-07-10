@@ -24,9 +24,7 @@ jobs:
         compiler_target:
           [
             { os: ubuntu-latest, target: x86_64-unknown-linux-gnu },
-            { os: ubuntu-latest, target: x86_64-unknown-linux-musl },
             { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu },
-            { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl },
             { os: macos-15-intel, target: x86_64-apple-darwin },
             { os: macos-26, target: aarch64-apple-darwin },
             { os: windows-2025, target: x86_64-pc-windows-msvc },
@@ -44,6 +42,16 @@ jobs:
               { os: windows-2025, target: x86_64-pc-windows-msvc }
             install: vcpkg
             features: buildtime_bindgen
+          - target: mysql
+            compiler_target:
+              { os: ubuntu-latest, target: x86_64-unknown-linux-musl }
+            features: bundled
+            openssl: "-F openssl-sys/vendored"
+          - target: mysql
+            compiler_target:
+              { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl }
+            features: bundled
+            openssl: "-F openssl-sys/vendored"
         exclude:
           # Bundled builds never use MariaDB target
           - target: mariadb
@@ -112,7 +120,7 @@ jobs:
           echo "MYSQL_UNIT_TEST_DATABASE_URL=mysql://root:root@localhost/diesel_unit_test" >> $GITHUB_ENV
 
       - name: Install MySQL (MacOS Intel)
-        if: ${{ runner.os == 'macos-15-intel' && matrix.target == 'mysql' && !startsWith(matrix.features, 'bundled') }}
+        if: ${{ matrix.compiler_target.os == 'macos-15-intel' && matrix.target == 'mysql' && !startsWith(matrix.features, 'bundled') }}
         run: |
           brew update
           brew install mysql@8.0
@@ -124,13 +132,13 @@ jobs:
           ls /usr/local/opt/mysql@8.0/include/mysql
 
       - name: Install MariaDB 10.5 (MacOS Intel)
-        if: ${{ runner.os == 'macos-15-intel' && matrix.target == 'mariadb' }}
+        if: ${{ matrix.compiler_target.os == 'macos-15-intel' && matrix.target == 'mariadb' }}
         run: |
           brew install mariadb@10.6
           echo "PKG_CONFIG_PATH=/usr/local/opt/mariadb@10.6/lib/pkgconfig" >> $GITHUB_ENV
 
       - name: Install MySQL (MacOS M1)
-        if: ${{ runner.os == 'macos-26' && matrix.target == 'mysql' && !startsWith(matrix.features, 'bundled') }}
+        if: ${{ matrix.compiler_target.os == 'macos-26' && matrix.target == 'mysql' && !startsWith(matrix.features, 'bundled') }}
         run: |
           brew update
           brew install mysql@8.4
@@ -143,7 +151,7 @@ jobs:
           echo "MYSQLCLIENT_VERSION=8.4" >> $GITHUB_ENV
 
       - name: Install MariaDB latest (MacOS M1)
-        if: ${{ runner.os == 'macos-26' && matrix.target == 'mariadb' }}
+        if: ${{ matrix.compiler_target.os == 'macos-26' && matrix.target == 'mariadb' }}
         run: |
           brew update
           brew install mariadb@11.4
@@ -216,6 +224,13 @@ jobs:
           cargo --version
           rustc --version
 
+      - name: Setup musl toolchain (aarch64)
+        if: ${{ matrix.compiler_target.target == 'aarch64-unknown-linux-musl' ||  matrix.compiler_target.target == 'x86_64-unknown-linux-musl' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+          echo "TARGET_CXX=g++" >> $GITHUB_ENV
+
       - name: Check
         shell: bash
         env:
@@ -256,7 +271,7 @@ jobs:
           cargo build --features "mysqlclient-sys/$FEATURES" $OPENSSL --target $TARGET
 
       - name: Generated bindings.rs
-        if: ${{ matrix.os != 'Windows' && !startsWith(matrix.features, 'bundled') }}
+        if: ${{ runner.os != 'Windows' && !startsWith(matrix.features, 'bundled') }}
         shell: bash
         run: |
           find . -name bindings.rs -ls -exec cat {} \;
